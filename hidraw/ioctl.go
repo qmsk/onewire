@@ -13,14 +13,24 @@ func (self *Device) fd() C.int {
     return C.int(self.file.Fd())
 }
 
-func (self *Device) ioctlGetReportSize() (int, error) {
+func (self *Device) ioctlGetReportDescriptor() ([]byte, error) {
     var size C.int
+    var hrd C.struct_hidraw_report_descriptor
 
     if _, err := C.hidraw_ioctl_getrdescsize(self.fd(), &size); err != nil {
-        return 0, err
+        return nil, err
     }
-    
-    return int(size), nil
+    if _, err := C.hidraw_ioctl_getrdesc(self.fd(), &hrd, size); err != nil {
+        return nil, err
+    }
+
+    buf := make([]byte, int(hrd.size))
+
+    for i := 0; i < len(buf); i++ {
+        buf[i] = byte(hrd.value[i])
+    }
+
+    return buf, nil
 }
 
 func (self *Device) ioctlGetDevInfo() (devInfo DevInfo, err error) {

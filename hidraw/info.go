@@ -57,7 +57,7 @@ func List() (devices []DeviceInfo, err error) {
     }
 }
 
-func Select(config DeviceConfig) (*Device, error) {
+func Find(config DeviceConfig) (*Device, error) {
     if devices, err := List(); err != nil {
         return nil, err
     } else {

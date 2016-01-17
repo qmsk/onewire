@@ -1,13 +1,11 @@
 package hidraw
 
 import (
-    "fmt"
     "os"
 )
 
 type Device struct {
     file        *os.File
-    reportSize  int
 }
 
 func Open(info DeviceInfo) (*Device, error) {
@@ -19,35 +17,24 @@ func Open(info DeviceInfo) (*Device, error) {
         device.file = file
     }
 
-    if err := device.init(); err != nil {
-        return nil, err
-    }
-
     return device, nil
 }
 
-func (self *Device) init() error {
-    if reportSize, err := self.ioctlGetReportSize(); err != nil {
-        return err
-    } else {
-        self.reportSize = reportSize
-    }
-
-    return nil
-}
-
+// USB HID Device Info
+//
+// Bus-level data about the device
 func (self *Device) DevInfo() (devInfo DevInfo, err error) {
     return self.ioctlGetDevInfo()
 }
 
-func (self *Device) Read() ([]byte, error) {
-    buf := make([]byte, self.reportSize)
+// USB HID Report Descriptor
+//
+// This is a magic thing that specifies the format of the reports
+// http://stackoverflow.com/questions/21606991/custom-hid-device-hid-report-descriptor
+func (self *Device) ReportDescriptor() ([]byte, error) {
+    return self.ioctlGetReportDescriptor()
+}
 
-    if n, err := self.file.Read(buf); err != nil {
-        return nil, err
-    } else if n != self.reportSize {
-        return nil, fmt.Errorf("Short read")
-    } else {
-        return buf, nil
-    }
+func (self *Device) Read(buf []byte) (int, error) {
+    return self.file.Read(buf)
 }
