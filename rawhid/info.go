@@ -5,10 +5,15 @@ import (
     "github.com/qmsk/onewire/udev"
 )
 
+type DeviceConfig struct {
+    Vendor      uint
+    Product     uint
+}
+
 type DeviceInfo struct {
     Name        string
-    SysPath     string
-    DevPath     string
+    SysDevice   string
+    DevFile     string
 
     VendorID    uint16
     ProductID   uint16
@@ -21,13 +26,14 @@ func List() (devices []DeviceInfo, err error) {
         for _, deviceNode := range deviceNodes {
             deviceInfo := DeviceInfo{
                 Name:       deviceNode.Name(),
-                SysPath:    deviceNode.Path(),
+                SysDevice:  deviceNode.Path(),
             }
 
             if devFile := deviceNode.DevFile(); devFile != "" {
-                deviceInfo.DevPath = devFile
+                deviceInfo.DevFile = devFile
             }
 
+            // read USB device info
             if usbDevice := deviceNode.ParentSubsystemDevType("usb", "usb_device"); usbDevice.IsNil() {
                 return nil, fmt.Errorf("Could not find parent USB device: %v", deviceNode)
             } else {
@@ -48,5 +54,25 @@ func List() (devices []DeviceInfo, err error) {
         }
 
         return devices, nil
+    }
+}
+
+func Select(config DeviceConfig) (*Device, error) {
+    if devices, err := List(); err != nil {
+        return nil, err
+    } else {
+        for _, deviceInfo := range devices {
+            if config.Vendor != 0 && uint(deviceInfo.VendorID) != config.Vendor {
+                continue
+            }
+            if config.Product != 0 && uint(deviceInfo.ProductID) != config.Product {
+                continue
+            }
+
+            return Open(deviceInfo)
+        }
+
+        // not found
+        return nil, nil
     }
 }
