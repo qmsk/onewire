@@ -4,27 +4,10 @@ import (
     "bufio"
     "fmt"
     "os"
-    "path"
     "strings"
 )
 
 type UeventInfo map[string]string
-
-func (self UeventInfo) DevName() string {
-    return self["DEVNAME"]
-}
-
-func (self UeventInfo) DevFile() string {
-    devName := self.DevName()
-
-    if devName == "" {
-        return ""
-    } else if devName[0] == '/' {
-        return devName
-    } else {
-        return path.Join("/dev", devName)
-    }
-}
 
 func readUevent(ueventPath string) (UeventInfo, error) {
     file, err := os.Open(ueventPath)
