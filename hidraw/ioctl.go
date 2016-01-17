@@ -1,4 +1,4 @@
-package rawhid
+package hidraw
 
 // #include "ioctl.h"
 import "C"

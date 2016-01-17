@@ -1,4 +1,4 @@
-package rawhid
+package hidraw
 
 import (
     "fmt"
