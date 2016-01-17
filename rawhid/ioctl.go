@@ -3,26 +3,37 @@ package rawhid
 // #include "ioctl.h"
 import "C"
 
-import (
-    "os"
-)
-
 type DevInfo struct {
     BusType     uint
     Vendor      int
     Product     int
 }
 
-func ioctlGetRawInfo(dev *os.File) (devInfo DevInfo, err error) {
+func (self *Device) fd() C.int {
+    return C.int(self.file.Fd())
+}
+
+func (self *Device) ioctlGetReportSize() (int, error) {
+    var size C.int
+
+    if _, err := C.hidraw_ioctl_getrdescsize(self.fd(), &size); err != nil {
+        return 0, err
+    }
+    
+    return int(size), nil
+}
+
+func (self *Device) ioctlGetDevInfo() (devInfo DevInfo, err error) {
     var hdi C.struct_hidraw_devinfo
 
-    if _, err := C.hidraw_ioctl_getrawinfo(C.int(dev.Fd()), &hdi); err != nil {
+    if _, err := C.hidraw_ioctl_getrawinfo(self.fd(), &hdi); err != nil {
         return devInfo, err
     }
 
-    return DevInfo{
+    devInfo = DevInfo{
         uint(hdi.bustype),
         int(hdi.vendor),
         int(hdi.product),
-    }, nil
+    }
+    return
 }
