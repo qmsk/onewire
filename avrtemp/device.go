@@ -17,6 +17,7 @@ import (
     "github.com/qmsk/onewire/hidraw"
 )
 
+// hidraw device configuration for hidraw.Find()
 var HIDRAW_CONFIG = hidraw.DeviceConfig{
     Vendor:     0x16C0,
     Product:    0x0480,
@@ -61,6 +62,10 @@ type Report struct {
     ID          ID              // 0x08
 }
 
+func (self *Report) unpack(buf []byte) error {
+    return binary.Read(bytes.NewReader(buf), binary.LittleEndian, self)
+}
+
 func (self Report) String() string {
     return fmt.Sprintf("Sensor #%d of %d: %.1fC (Power: %v ID: %v)",
         self.Index, self.Count,
@@ -80,14 +85,13 @@ func Open(hidrawDevice *hidraw.Device) (*Device, error) {
 func (self *Device) Read() (report Report, err error) {
     buf := make([]byte, 64)
 
-    _, err = self.hidrawDevice.Read(buf)
-    if err != nil {
+    if readSize, err := self.hidrawDevice.Read(buf); err != nil {
         return report, err
+    } else {
+        buf = buf[:readSize]
     }
 
-    reader := bytes.NewReader(buf)
-
-    if err := binary.Read(reader, binary.LittleEndian, &report); err != nil {
+    if err := report.unpack(buf); err != nil {
         return report, err
     }
 
