@@ -24,29 +24,16 @@ type APIStatus struct {
 }
 
 func (s *Server) GetStatus(_ *http.Request, path ...string) (interface{}, error) {
+    // request
+    statusChan := make(chan APIStatus)
+
+    s.apiStatusChan <- statusChan
+
+    // aggregate + return
     var statusList []APIStatus
 
-    for name, device  := range s.devices {
-        status := APIStatus{
-            Name:           name,
-            HidrawDevice:   device.hidraw,
-            Stats:          make(map[string]string),
-        }
-
-        if device.avrtemp != nil {
-            status.AvrtempDevice = device.avrtemp.Status()
-        }
-
-        for statID, stat := range s.stats {
-            if stat.Device != device {
-                continue
-            } else {
-                // nil-safe
-                status.Stats[statID] = s.sensorConfig[statID].String()
-            }
-        }
-
-        statusList = append(statusList, status)
+    for apiStatus := range statusChan {
+        statusList = append(statusList, apiStatus)
     }
 
     return statusList, nil

@@ -40,9 +40,11 @@ type Server struct {
     devices         map[string]*Device
     stats           map[string]Stat
 
-    deviceChan          chan Device    // add
-    statChan            chan Stat
-    influxChan          chan Stat
+    deviceChan          chan Device     // add/remove Device
+    statChan            chan Stat       // read in from Devices
+    influxChan          chan Stat       // write out to influx
+
+    apiStatusChan       chan chan APIStatus
 }
 
 func New() (*Server, error) {
@@ -54,11 +56,40 @@ func New() (*Server, error) {
 
         deviceChan:     make(chan Device),
         statChan:       make(chan Stat),
+
+        apiStatusChan:  make(chan chan APIStatus),
     }
 
     go server.run()
 
     return server, nil
+}
+
+func (s *Server) apiStatus(statusChan chan APIStatus) {
+    defer close(statusChan)
+
+    for name, device := range s.devices {
+        status := APIStatus{
+            Name:           name,
+            HidrawDevice:   device.hidraw,
+            Stats:          make(map[string]string),
+        }
+
+        if device.avrtemp != nil {
+            status.AvrtempDevice = device.avrtemp.Status()
+        }
+
+        for statID, stat := range s.stats {
+            if stat.Device != device {
+                continue
+            } else {
+                // nil-safe
+                status.Stats[statID] = s.sensorConfig[statID].String()
+            }
+        }
+
+        statusChan <- status
+    }
 }
 
 func (s *Server) run() {
@@ -96,6 +127,9 @@ func (s *Server) run() {
             s.stats[stat.String()] = stat
 
             s.influxChan <- stat
+
+        case statusChan := <-s.apiStatusChan:
+            s.apiStatus(statusChan)
         }
     }
 }
