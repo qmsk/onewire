@@ -3,6 +3,16 @@
     go build -o bin/server server.go 
     ./bin/server -config-path config/test.toml -influxdb-server=localhost
 
+## InfluxDB
+
+Supports writing stats to `server -influxdb-server=... -influxdb-database=...`.
+
+![Grafana Screenshot](/docs/grafana.png?raw=true "Grafana")
+
+Grafana Query:
+
+    SELECT mean("temperature") FROM "onewire" WHERE "family" = 'ds18b20' AND $timeFilter GROUP BY time($interval), "id", "name" fill(null)
+
 ## Config
 The configuration file can be used to name connected sensors.
 
@@ -68,16 +78,6 @@ The configuration file can be used to name connected sensors.
           "id" : "28ff1032921503ed"
        }
     ]
-
-## InfluxDB
-
-Supports writing stats to `server -influxdb-server=... -influxdb-database=...`.
-
-![Grafana Screenshot](/docs/grafana.png?raw=true "Grafana")
-
-Grafana Query:
-
-    SELECT mean("temperature") FROM "onewire" WHERE "family" = 'ds18b20' AND $timeFilter GROUP BY time($interval), "id", "name" fill(null)
 
 ## Devices
 
