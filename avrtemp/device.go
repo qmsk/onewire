@@ -41,7 +41,17 @@ type Device struct {
     status          Status
 }
 
+// TODO: TYPE.ID:CRC?
 type ID             [8]byte
+
+func (self ID) Family() string {
+    switch self[0] {
+    case 0x28:
+        return "ds18b20"
+    default:
+        return fmt.Sprintf("%02x", self[0])
+    }
+}
 
 func (self ID) String() string {
     return hex.EncodeToString(self[:])
