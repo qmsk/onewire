@@ -1,3 +1,13 @@
+## InfluxDB
+
+Supports writing stats to `server -influxdb-server=... -influxdb-database=...`.
+
+![Grafana Screenshot](/doc/grafana.png?raw=true "Grafana")
+
+Grafana Query:
+
+    SELECT mean("temperature") FROM "onewire" WHERE "family" = 'ds18b20' AND $timeFilter GROUP BY time($interval), "id", "name" fill(null)
+
 ## Dependencies
 
 * libudev-dev
