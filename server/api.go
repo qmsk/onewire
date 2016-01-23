@@ -39,10 +39,9 @@ func (s *Server) GetStatus(_ *http.Request, path ...string) (interface{}, error)
             for statID, stat := range s.stats {
                 if stat.Device != avrtempDevice {
                     continue
-                } else if sensorConfig := s.sensorConfig[statID]; sensorConfig == nil {
-                    status.Stats[statID] = ""
                 } else {
-                    status.Stats[statID] = sensorConfig.String()
+                    // nil-safe
+                    status.Stats[statID] = s.sensorConfig[statID].String()
                 }
             }
         }
@@ -55,6 +54,7 @@ func (s *Server) GetStatus(_ *http.Request, path ...string) (interface{}, error)
 
 type APIStat struct {
     ID          string      `json:"id"`
+    Family      string      `json:"family"`
     SensorName  string      `json:"sensor_name"`
     Time        time.Time   `json:"time"`
     Temperature float64     `json:"temperature"`
@@ -66,6 +66,7 @@ func (s *Server) GetStats(_ *http.Request, path ...string) (interface{}, error) 
     for id, stat := range s.stats {
         apiStat := APIStat{
             ID:             id,
+            Family:         stat.ID.Family(),
             Time:           stat.Time,
             Temperature:    stat.Temperature.Float64(),
         }

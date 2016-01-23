@@ -10,7 +10,11 @@ type SensorConfig struct {
     ID          string
 }
 
-func (self SensorConfig) String() string {
+func (self *SensorConfig) String() string {
+    if self == nil {
+        return ""
+    }
+
     return self.name
 }
 

@@ -38,6 +38,7 @@ func main() {
 
     http.Handle("/api/", http.StripPrefix("/api", s))
 
+    // config
     if configPath == "" {
 
     } else if err := s.LoadConfig(configPath); err != nil {
