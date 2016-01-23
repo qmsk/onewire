@@ -18,12 +18,14 @@ func (d Device) String() string {
 }
 
 type Stat struct {
+    // set by Device.reader()
     Device          *Device
     ID              avrtemp.ID
-    SensorConfig    *SensorConfig
-
     Time            time.Time
     Temperature     avrtemp.Temperature
+
+    // set by Server.run()
+    SensorConfig    *SensorConfig
 }
 
 func (stat Stat) String() string {
@@ -38,6 +40,7 @@ type Server struct {
     devices         map[string]*Device
     stats           map[string]Stat
 
+    deviceChan          chan Device    // add
     statChan            chan Stat
     influxChan          chan Stat
 }
@@ -49,6 +52,7 @@ func New() (*Server, error) {
         devices:        make(map[string]*Device),
         stats:          make(map[string]Stat),
 
+        deviceChan:     make(chan Device),
         statChan:       make(chan Stat),
     }
 
@@ -59,10 +63,31 @@ func New() (*Server, error) {
 
 func (s *Server) run() {
     var stat Stat
-    var influxChan chan Stat
 
     for {
         select {
+        case device := <-s.deviceChan:
+            if device.avrtemp != nil {
+                runningDevice := &device
+
+                log.Printf("server.Server: Start avrtemp device %v\n", runningDevice)
+
+                // run
+                s.devices[device.String()] = runningDevice
+
+                go runningDevice.reader(s.statChan)
+
+            } else if runningDevice := s.devices[device.String()]; runningDevice != nil {
+                log.Printf("server.Server: Stop device %v\n", runningDevice)
+
+                // shutdown
+                if runningDevice.avrtemp != nil {
+                    runningDevice.avrtemp.Close()
+                }
+
+                delete(s.devices, device.String())
+            }
+
         case stat = <-s.statChan:
             log.Printf("server.Server: Stat %v: %v\n", stat, stat.Temperature)
 
@@ -70,11 +95,7 @@ func (s *Server) run() {
 
             s.stats[stat.String()] = stat
 
-            influxChan = s.influxChan
-
-        // send once
-        case influxChan <- stat:
-            influxChan = nil
+            s.influxChan <- stat
         }
     }
 }
@@ -98,7 +119,7 @@ func (device *Device) reader(statChan chan Stat) {
 }
 
 func (s *Server) AddHidrawDevice(deviceInfo hidraw.DeviceInfo) {
-    device := &Device{
+    device := Device{
         hidraw: deviceInfo,
     }
 
@@ -110,23 +131,15 @@ func (s *Server) AddHidrawDevice(deviceInfo hidraw.DeviceInfo) {
         log.Printf("AddHidrawDevice %#v: %#v\n", deviceInfo, avrtempDevice)
 
         device.avrtemp = avrtempDevice
-
-        go device.reader(s.statChan)
     }
 
-    s.devices[device.String()] = device
+    s.deviceChan <- device
 }
 
 func (s *Server) RemoveHidrawDevice(deviceInfo hidraw.DeviceInfo) {
     log.Printf("RemoveHidrawDevice %v...\n", deviceInfo)
 
-    device := s.devices[deviceInfo.String()]
-
-    if device != nil && device.avrtemp != nil {
-        device.avrtemp.Close()
-    }
-
-    delete(s.devices, deviceInfo.String())
+    s.deviceChan <- Device{hidraw: deviceInfo}
 }
 
 func (s *Server) MonitorHidraw(monitorChan chan hidraw.MonitorEvent) {
