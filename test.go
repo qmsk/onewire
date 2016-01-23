@@ -44,7 +44,7 @@ func main() {
         log.Fatalf("server.New: %v\n", err)
     }
 
-    http.Handle("/api", s)
+    http.Handle("/api/", http.StripPrefix("/api", s))
 
 
     if hidrawList, err := hidraw.List(deviceConfig); err != nil {

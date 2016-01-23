@@ -2,18 +2,9 @@ package server
 
 import (
     "github.com/qmsk/onewire/avrtemp"
-    "fmt"
-    "encoding/json"
     "github.com/qmsk/onewire/hidraw"
-    "net/http"
     "log"
 )
-
-type APIStatus struct {
-    Name            string              `json:"name"`
-    HidrawDevice    hidraw.DeviceInfo   `json:"hidraw_device"`
-    AvrtempDevice   string              `json:"avrtemp_device"`
-}
 
 type Server struct {
     hidrawDevices   map[string]hidraw.DeviceInfo
@@ -67,38 +58,4 @@ func (s *Server) MonitorHidraw(monitorChan chan hidraw.MonitorEvent) {
     }
 
     log.Printf("server.Server %v: MonitorHidraw: exit\n", s)
-}
-
-func (s *Server) GetStatus() (interface{}, error) {
-    var statusList []APIStatus
-
-    for name, hidrawDevice := range s.hidrawDevices {
-        status := APIStatus{
-            Name:           name,
-            HidrawDevice:   hidrawDevice,
-        }
-
-        if avrtempDevice := s.avrtempDevices[name]; avrtempDevice != nil {
-            status.AvrtempDevice = avrtempDevice.String()
-        }
-
-        statusList = append(statusList, status)
-    }
-
-    return statusList, nil
-}
-
-func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-    if jsonData, err := s.GetStatus(); err != nil {
-        w.WriteHeader(500)
-
-        fmt.Fprintf(w, "%v\n", err)
-    } else {
-        w.Header().Set("Content-Type", "application/json")
-        w.WriteHeader(200)
-
-        if err := json.NewEncoder(w).Encode(jsonData); err != nil {
-            panic(err)
-        }
-    }
 }
