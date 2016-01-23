@@ -19,8 +19,8 @@ import (
 
 // hidraw device configuration for hidraw.Find()
 var HIDRAW_CONFIG = hidraw.DeviceConfig{
-    Vendor:     0x16C0,
-    Product:    0x0480,
+    VendorID:   0x16C0,
+    ProductID:  0x0480,
 }
 
 type Device struct {

@@ -17,9 +17,9 @@ var (
 )
 
 func init() {
-    flag.UintVar(&deviceConfig.Vendor, "device-vendor", avrtemp.HIDRAW_CONFIG.Vendor,
+    flag.UintVar(&deviceConfig.VendorID, "device-vendor", avrtemp.HIDRAW_CONFIG.VendorID,
         "Select device vendor")
-    flag.UintVar(&deviceConfig.Product, "device-product", avrtemp.HIDRAW_CONFIG.Product,
+    flag.UintVar(&deviceConfig.ProductID, "device-product", avrtemp.HIDRAW_CONFIG.ProductID,
         "Select device product")
 
     flag.StringVar(&httpListen, "http-listen", "",
