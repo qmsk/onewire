@@ -6,7 +6,7 @@
 
 Supports writing stats to `server -influxdb-server=... -influxdb-database=...`.
 
-![Grafana Screenshot](/doc/grafana.png?raw=true "Grafana")
+![Grafana Screenshot](/docs/grafana.png?raw=true "Grafana")
 
 Grafana Query:
 
