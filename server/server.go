@@ -69,52 +69,6 @@ func New() (*Server, error) {
     return server, nil
 }
 
-func (s *Server) apiStatus(statusChan chan APIStatus) {
-    defer close(statusChan)
-
-    for name, device := range s.devices {
-        status := APIStatus{
-            Name:           name,
-            HidrawDevice:   device.hidraw,
-            Stats:          make(map[string]string),
-        }
-
-        if device.avrtemp != nil {
-            status.AvrtempDevice = device.avrtemp.Status()
-        }
-
-        for statID, stat := range s.stats {
-            if stat.Device != device {
-                continue
-            } else {
-                // nil-safe
-                status.Stats[statID] = s.sensorConfig[statID].String()
-            }
-        }
-
-        statusChan <- status
-    }
-}
-
-func (s *Server) apiStat(statChan chan APIStat) {
-    defer close(statChan)
-
-    for id, stat := range s.stats {
-        apiStat := APIStat{
-            ID:             id,
-            Family:         stat.ID.Family(),
-            Time:           stat.Time,
-            Temperature:    stat.Temperature.Float64(),
-        }
-
-        if stat.SensorConfig != nil {
-            apiStat.SensorName = stat.SensorConfig.String()
-        }
-
-        statChan <- apiStat
-    }
-}
-
 func (s *Server) run() {
     var stat Stat
 

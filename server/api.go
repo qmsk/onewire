@@ -23,6 +23,34 @@ type APIStatus struct {
     Stats           map[string]string   `json:"stats"`
 }
 
+// sync run() -> api state fetch
+func (s *Server) apiStatus(statusChan chan APIStatus) {
+    defer close(statusChan)
+
+    for name, device := range s.devices {
+        status := APIStatus{
+            Name:           name,
+            HidrawDevice:   device.hidraw,
+            Stats:          make(map[string]string),
+        }
+
+        if device.avrtemp != nil {
+            status.AvrtempDevice = device.avrtemp.Status()
+        }
+
+        for statID, stat := range s.stats {
+            if stat.Device != device {
+                continue
+            } else {
+                // nil-safe
+                status.Stats[statID] = s.sensorConfig[statID].String()
+            }
+        }
+
+        statusChan <- status
+    }
+}
+
 func (s *Server) GetStatus(_ *http.Request, path ...string) (interface{}, error) {
     // request
     statusChan := make(chan APIStatus)
@@ -45,6 +73,26 @@ type APIStat struct {
     SensorName  string      `json:"sensor_name"`
     Time        time.Time   `json:"time"`
     Temperature float64     `json:"temperature"`
+}
+
+// sync run() -> api state fetch
+func (s *Server) apiStat(statChan chan APIStat) {
+    defer close(statChan)
+
+    for id, stat := range s.stats {
+        apiStat := APIStat{
+            ID:             id,
+            Family:         stat.ID.Family(),
+            Time:           stat.Time,
+            Temperature:    stat.Temperature.Float64(),
+        }
+
+        if stat.SensorConfig != nil {
+            apiStat.SensorName = stat.SensorConfig.String()
+        }
+
+        statChan <- apiStat
+    }
 }
 
 func (s *Server) GetStats(_ *http.Request, path ...string) (interface{}, error) {
