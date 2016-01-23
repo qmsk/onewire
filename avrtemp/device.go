@@ -15,6 +15,8 @@ import (
     "fmt"
     "encoding/hex"
     "github.com/qmsk/onewire/hidraw"
+    "log"
+    "time"
 )
 
 // hidraw device configuration for hidraw.Find()
@@ -23,8 +25,20 @@ var HIDRAW_CONFIG = hidraw.DeviceConfig{
     ProductID:  0x0480,
 }
 
+type Status struct {
+    Device          string      `json:"device"`
+    Time            time.Time   `json:"time"`           // last read activity
+    SensorCount     uint        `json:"sensor_count"`
+}
+
+func (self *Status) update(report Report) {
+    self.Time = time.Now()
+    self.SensorCount = uint(report.Count)
+}
+
 type Device struct {
     hidrawDevice    *hidraw.Device
+    status          Status
 }
 
 type ID             [8]byte
@@ -77,6 +91,16 @@ func (self Report) String() string {
 func Open(hidrawDevice *hidraw.Device) (*Device, error) {
     device := &Device{
         hidrawDevice:   hidrawDevice,
+        status:         Status{
+            Device:         hidrawDevice.String(),
+        },
+    }
+
+    if _, err := hidrawDevice.DevInfo(); err != nil {
+        return nil, err
+    }
+    if _, err := hidrawDevice.ReportDescriptor(); err != nil {
+        return nil, err
     }
 
     return device, nil
@@ -86,17 +110,34 @@ func (self *Device) String() string {
     return self.hidrawDevice.String()
 }
 
+func (self *Device) Status() Status {
+    return self.status
+}
+
 func (self *Device) Read() (report Report, err error) {
     buf := make([]byte, 64)
 
-    if readSize, err := self.hidrawDevice.Read(buf); err != nil {
-        return report, err
-    } else {
-        buf = buf[:readSize]
-    }
+    for {
+        if readSize, err := self.hidrawDevice.Read(buf); err != nil {
+            return report, err
+        } else {
+            buf = buf[:readSize]
+        }
 
-    if err := report.unpack(buf); err != nil {
-        return report, err
+        if err := report.unpack(buf); err != nil {
+            return report, err
+        }
+
+        // stats
+        self.status.update(report)
+
+        if report.Count > 0 {
+            // valid report
+            break
+        }
+
+        log.Printf("avrtemp.Device %v: read empty report\n", self)
+        continue
     }
 
     return
