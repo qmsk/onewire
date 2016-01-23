@@ -12,6 +12,7 @@ import (
 var (
     configPath  string
     deviceConfig hidraw.DeviceConfig
+    influxOptions   server.InfluxOptions
     httpListen  string
 )
 
@@ -23,6 +24,11 @@ func init() {
         "Select device vendor")
     flag.UintVar(&deviceConfig.ProductID, "device-product", avrtemp.HIDRAW_CONFIG.ProductID,
         "Select device product")
+
+    flag.StringVar(&influxOptions.Server, "influxdb-server", "",
+        "InfluxDB host[:port]")
+    flag.StringVar(&influxOptions.Database, "influxdb-datbase", "onewire",
+        "InfluxDB database")
 
     flag.StringVar(&httpListen, "http-listen", ":8283",
         "HTTP Listen: HOST:PORT")
@@ -47,6 +53,16 @@ func main() {
         log.Printf("server.LoadConfig %v\n", configPath)
     }
 
+    // influx
+    if influxOptions.Empty() {
+
+    } else if err := s.InfluxWriter(influxOptions); err != nil {
+        log.Fatalf("server.InfluxWriter %v: %v\n", influxOptions, err)
+    } else {
+        log.Printf("server.InfluxWriter %v\n", influxOptions)
+    }
+
+    // devices
     if hidrawList, err := hidraw.List(deviceConfig); err != nil {
         log.Fatalf("hidraw.List %v: %v\n", deviceConfig, err)
     } else {

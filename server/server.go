@@ -30,6 +30,7 @@ type Server struct {
     stats           map[string]Stat
 
     statChan            chan Stat
+    influxChan          chan Stat
 }
 
 func New() (*Server, error) {
@@ -49,12 +50,21 @@ func New() (*Server, error) {
 }
 
 func (s *Server) run() {
+    var stat Stat
+    var influxChan chan Stat
+
     for {
         select {
-        case stat := <-s.statChan:
+        case stat = <-s.statChan:
             log.Printf("server.Server: Stat %v: %v\n", stat, stat.Temperature)
 
             s.stats[stat.String()] = stat
+
+            influxChan = s.influxChan
+
+        // send once
+        case influxChan <- stat:
+            influxChan = nil
         }
     }
 }
