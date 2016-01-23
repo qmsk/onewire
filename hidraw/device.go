@@ -11,13 +11,17 @@ type Device struct {
 func Open(info DeviceInfo) (*Device, error) {
     device := &Device{}
 
-    if file, err := os.OpenFile(info.DevFile, os.O_RDWR, 0); err != nil {
+    if file, err := os.OpenFile(info.DevNode, os.O_RDWR, 0); err != nil {
         return nil, err
     } else {
         device.file = file
     }
 
     return device, nil
+}
+
+func (self *Device) String() string {
+    return self.file.Name()
 }
 
 // USB HID Device Info
@@ -37,4 +41,8 @@ func (self *Device) ReportDescriptor() ([]byte, error) {
 
 func (self *Device) Read(buf []byte) (int, error) {
     return self.file.Read(buf)
+}
+
+func (self *Device) Close() {
+    self.file.Close()
 }
