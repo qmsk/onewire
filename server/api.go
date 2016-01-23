@@ -18,31 +18,31 @@ func (s *Server) GetConfig(_ *http.Request, path ...string) (interface{}, error)
 
 type APIStatus struct {
     Name            string              `json:"name"`
-    HidrawDevice    hidraw.DeviceInfo   `json:"hidraw_device"`
-    AvrtempDevice   avrtemp.Status      `json:"avrtemp_device"`
+    HidrawDevice    hidraw.DeviceInfo   `json:"hidraw"`
+    AvrtempDevice   avrtemp.Status      `json:"avrtemp"`
     Stats           map[string]string   `json:"stats"`
 }
 
 func (s *Server) GetStatus(_ *http.Request, path ...string) (interface{}, error) {
     var statusList []APIStatus
 
-    for name, hidrawDevice := range s.hidrawDevices {
+    for name, device  := range s.devices {
         status := APIStatus{
             Name:           name,
-            HidrawDevice:   hidrawDevice,
+            HidrawDevice:   device.hidraw,
             Stats:          make(map[string]string),
         }
 
-        if avrtempDevice := s.avrtempDevices[name]; avrtempDevice != nil {
-            status.AvrtempDevice = avrtempDevice.Status()
+        if device.avrtemp != nil {
+            status.AvrtempDevice = device.avrtemp.Status()
+        }
 
-            for statID, stat := range s.stats {
-                if stat.Device != avrtempDevice {
-                    continue
-                } else {
-                    // nil-safe
-                    status.Stats[statID] = s.sensorConfig[statID].String()
-                }
+        for statID, stat := range s.stats {
+            if stat.Device != device {
+                continue
+            } else {
+                // nil-safe
+                status.Stats[statID] = s.sensorConfig[statID].String()
             }
         }
 

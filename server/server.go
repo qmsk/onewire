@@ -8,8 +8,17 @@ import (
     "time"
 )
 
+type Device struct {
+    hidraw          hidraw.DeviceInfo
+    avrtemp         *avrtemp.Device
+}
+
+func (d Device) String() string {
+    return d.hidraw.String()
+}
+
 type Stat struct {
-    Device          *avrtemp.Device
+    Device          *Device
     ID              avrtemp.ID
     SensorConfig    *SensorConfig
 
@@ -22,11 +31,11 @@ func (stat Stat) String() string {
 }
 
 type Server struct {
+    // XXX: these maps are all racy
     config          Config
     sensorConfig    map[string]*SensorConfig
 
-    hidrawDevices   map[string]hidraw.DeviceInfo
-    avrtempDevices  map[string]*avrtemp.Device
+    devices         map[string]*Device
     stats           map[string]Stat
 
     statChan            chan Stat
@@ -37,8 +46,7 @@ func New() (*Server, error) {
     server := &Server{
         sensorConfig:   make(map[string]*SensorConfig),
 
-        hidrawDevices:  make(map[string]hidraw.DeviceInfo),
-        avrtempDevices: make(map[string]*avrtemp.Device),
+        devices:        make(map[string]*Device),
         stats:          make(map[string]Stat),
 
         statChan:       make(chan Stat),
@@ -58,6 +66,8 @@ func (s *Server) run() {
         case stat = <-s.statChan:
             log.Printf("server.Server: Stat %v: %v\n", stat, stat.Temperature)
 
+            stat.SensorConfig = s.sensorConfig[stat.ID.String()]
+
             s.stats[stat.String()] = stat
 
             influxChan = s.influxChan
@@ -69,18 +79,17 @@ func (s *Server) run() {
     }
 }
 
-func (s *Server) reader(avrtempDevice *avrtemp.Device) {
+func (device *Device) reader(statChan chan Stat) {
     for {
-        if report, err := avrtempDevice.Read(); err != nil {
-            log.Printf("server.Server: reader: avrtemp.Device %v: Read: %v\n", avrtempDevice, err)
+        if report, err := device.avrtemp.Read(); err != nil {
+            log.Printf("server.Device %v: avrtemp.Device %v: Read: %v\n", device, err)
             break
         } else {
-            log.Printf("server.Server: reader: avrtemp.Device %v: Read: %v\n", avrtempDevice, report)
+            log.Printf("server.Device %v: avrtemp.Device %v: Read: %v\n", device, report)
 
-            s.statChan <- Stat{
-                Device:         avrtempDevice,
+            statChan <- Stat{
+                Device:         device,
                 ID:             report.ID,
-                SensorConfig:   s.sensorConfig[report.ID.String()],
                 Time:           time.Now(),
                 Temperature:    report.Temp,
             }
@@ -89,7 +98,9 @@ func (s *Server) reader(avrtempDevice *avrtemp.Device) {
 }
 
 func (s *Server) AddHidrawDevice(deviceInfo hidraw.DeviceInfo) {
-    s.hidrawDevices[deviceInfo.String()] = deviceInfo
+    device := &Device{
+        hidraw: deviceInfo,
+    }
 
     if hidrawDevice, err := hidraw.Open(deviceInfo); err != nil {
         log.Printf("AddHidrawDevice %#v: hidraw.Open: %v\n", deviceInfo, err)
@@ -98,21 +109,24 @@ func (s *Server) AddHidrawDevice(deviceInfo hidraw.DeviceInfo) {
     } else {
         log.Printf("AddHidrawDevice %#v: %#v\n", deviceInfo, avrtempDevice)
 
-        s.avrtempDevices[deviceInfo.String()] = avrtempDevice
+        device.avrtemp = avrtempDevice
 
-        go s.reader(avrtempDevice)
+        go device.reader(s.statChan)
     }
+
+    s.devices[device.String()] = device
 }
 
 func (s *Server) RemoveHidrawDevice(deviceInfo hidraw.DeviceInfo) {
     log.Printf("RemoveHidrawDevice %v...\n", deviceInfo)
 
-    if avrtempDevice := s.avrtempDevices[deviceInfo.String()]; avrtempDevice != nil {
-        avrtempDevice.Close()
+    device := s.devices[deviceInfo.String()]
+
+    if device != nil && device.avrtemp != nil {
+        device.avrtemp.Close()
     }
 
-    delete(s.avrtempDevices, deviceInfo.String())
-    delete(s.hidrawDevices, deviceInfo.String())
+    delete(s.devices, deviceInfo.String())
 }
 
 func (s *Server) MonitorHidraw(monitorChan chan hidraw.MonitorEvent) {
