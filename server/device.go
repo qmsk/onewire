@@ -20,7 +20,7 @@ func (d Device) String() string {
 func (device *Device) reader(statChan chan Stat) {
     for {
         if report, err := device.avrtemp.Read(); err != nil {
-            log.Printf("server.Device %v: avrtemp.Device %v: Read: %v\n", device, err)
+            log.Printf("server.Device %v: avrtemp.Device %v: Read: %v\n", device, device.avrtemp, err)
             break
         } else {
             statChan <- Stat{
