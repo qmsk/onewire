@@ -4,13 +4,16 @@ import (
     "github.com/qmsk/onewire/avrtemp"
     "flag"
     "encoding/hex"
+    "github.com/qmsk/onewire/hidraw"
+    "net/http"
     "log"
     "os"
-    "github.com/qmsk/onewire/hidraw"
+    "github.com/qmsk/onewire/server"
 )
 
 var (
     deviceConfig hidraw.DeviceConfig
+    httpListen  string
 )
 
 func init() {
@@ -18,6 +21,9 @@ func init() {
         "Select device vendor")
     flag.UintVar(&deviceConfig.Product, "device-product", avrtemp.HIDRAW_CONFIG.Product,
         "Select device product")
+
+    flag.StringVar(&httpListen, "http-listen", "",
+        "HTTP Listen: HOST:PORT")
 }
 
 func hexdump(buf []byte) {
@@ -33,39 +39,41 @@ func hexdump(buf []byte) {
 func main() {
     flag.Parse()
 
-    if hidrawList, err := hidraw.List(); err != nil {
-        log.Fatalf("hidraw.List: %v\n", err)
+    s, err := server.New()
+    if err != nil {
+        log.Fatalf("server.New: %v\n", err)
+    }
+
+    http.Handle("/api", s)
+
+
+    if hidrawList, err := hidraw.List(deviceConfig); err != nil {
+        log.Fatalf("hidraw.List %v: %v\n", deviceConfig, err)
     } else {
-        log.Printf("hidraw.List:\n")
+        log.Printf("hidraw.List...\n")
         for _, deviceInfo := range hidrawList {
-            log.Printf("\t%#v\n", deviceInfo)
+            go s.AddHidrawDevice(deviceInfo)
         }
     }
 
-    hidrawDevice, err := hidraw.Find(deviceConfig)
-    if err != nil {
-        log.Fatalf("hidraw.Select %v: %v\n", deviceConfig, err)
-    }
-
-    if devInfo, err := hidrawDevice.DevInfo(); err != nil {
-        log.Fatalf("hidraw.Device %v: DevInfo: %v\n", hidrawDevice, err)
+    if monitorChan, err := hidraw.Monitor(deviceConfig); err != nil {
+        log.Fatalf("hidraw.Monitor %v: %v\n", deviceConfig, err)
     } else {
-        log.Printf("hidraw.Device %v: DevInfo: %#v\n", hidrawDevice, devInfo)
+        log.Printf("hidraw.Monitor...\n")
+
+        go s.MonitorHidraw(monitorChan)
     }
 
-    if reportDescriptor, err := hidrawDevice.ReportDescriptor(); err != nil {
-        log.Fatalf("hidraw.Device %v: ReportDescriptor: %v\n", hidrawDevice, err)
-    } else {
-        log.Printf("hidraw.Device %v: ReportDescriptor:\n%v\n", hidrawDevice, hex.Dump(reportDescriptor))
+    // run
+    if httpListen != "" {
+        log.Printf("http.ListenAndServe %v...\n", httpListen)
+
+        if err := http.ListenAndServe(httpListen, nil); err != nil {
+            log.Fatalf("http.ListenAndServe %v: %v\n", httpListen, err)
+        }
     }
 
-    avrtempDevice, err := avrtemp.Open(hidrawDevice)
-    if err != nil {
-        log.Fatalf("avrtemp.Open %v: %v\n", hidrawDevice, err)
-    } else {
-        log.Printf("avrtemp.Open %v: %v\n", hidrawDevice, avrtempDevice)
-    }
-
+    /*
     log.Printf("avrtempDevice %v: Read...\n", avrtempDevice)
     for {
         if report, err := avrtempDevice.Read(); err != nil {
@@ -73,5 +81,5 @@ func main() {
         } else {
             log.Printf("%v\n", report)
         }
-    }
+    }*/
 }
