@@ -82,6 +82,10 @@ func Open(hidrawDevice *hidraw.Device) (*Device, error) {
     return device, nil
 }
 
+func (self *Device) String() string {
+    return self.hidrawDevice.String()
+}
+
 func (self *Device) Read() (report Report, err error) {
     buf := make([]byte, 64)
 
@@ -96,4 +100,8 @@ func (self *Device) Read() (report Report, err error) {
     }
 
     return
+}
+
+func (self *Device) Close() {
+    self.hidrawDevice.Close()
 }
