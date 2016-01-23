@@ -10,19 +10,19 @@ import (
 )
 
 type APIStatus struct {
-    Name            string  `json:"name"`
-    HidrawDevice    string  `json:"hidraw_device"`
-    AvrtempDevice   string  `json:"avrtemp_device"`
+    Name            string              `json:"name"`
+    HidrawDevice    hidraw.DeviceInfo   `json:"hidraw_device"`
+    AvrtempDevice   string              `json:"avrtemp_device"`
 }
 
 type Server struct {
-    hidrawDevices   map[string]*hidraw.Device
+    hidrawDevices   map[string]hidraw.DeviceInfo
     avrtempDevices  map[string]*avrtemp.Device
 }
 
 func New() (*Server, error) {
     server := &Server{
-        hidrawDevices:  make(map[string]*hidraw.Device),
+        hidrawDevices:  make(map[string]hidraw.DeviceInfo),
         avrtempDevices: make(map[string]*avrtemp.Device),
     }
 
@@ -30,18 +30,16 @@ func New() (*Server, error) {
 }
 
 func (s *Server) AddHidrawDevice(deviceInfo hidraw.DeviceInfo) {
+    s.hidrawDevices[deviceInfo.String()] = deviceInfo
+
     if hidrawDevice, err := hidraw.Open(deviceInfo); err != nil {
         log.Printf("AddHidrawDevice %#v: hidraw.Open: %v\n", deviceInfo, err)
+    } else if avrtempDevice, err := avrtemp.Open(hidrawDevice); err != nil {
+        log.Printf("AddHidrawDevice %#v: avrtemp.Open: %v\n", deviceInfo, err)
     } else {
-        s.hidrawDevices[deviceInfo.String()] = hidrawDevice
+        log.Printf("AddHidrawDevice %#v: %#v\n", deviceInfo, avrtempDevice)
 
-        if avrtempDevice, err := avrtemp.Open(hidrawDevice); err != nil {
-            log.Printf("AddHidrawDevice %#v: avrtemp.Open: %v\n", deviceInfo, err)
-        } else {
-            log.Printf("AddHidrawDevice %#v: %#v\n", deviceInfo, avrtempDevice)
-
-            s.avrtempDevices[deviceInfo.String()] = avrtempDevice
-        }
+        s.avrtempDevices[deviceInfo.String()] = avrtempDevice
     }
 }
 
@@ -50,12 +48,10 @@ func (s *Server) RemoveHidrawDevice(deviceInfo hidraw.DeviceInfo) {
 
     if avrtempDevice := s.avrtempDevices[deviceInfo.String()]; avrtempDevice != nil {
         avrtempDevice.Close()
-    } else if hidrawDevice := s.hidrawDevices[deviceInfo.String()]; hidrawDevice != nil {
-        hidrawDevice.Close()
     }
 
-    delete(s.hidrawDevices, deviceInfo.String())
     delete(s.avrtempDevices, deviceInfo.String())
+    delete(s.hidrawDevices, deviceInfo.String())
 }
 
 func (s *Server) MonitorHidraw(monitorChan chan hidraw.MonitorEvent) {
@@ -79,7 +75,7 @@ func (s *Server) GetStatus() (interface{}, error) {
     for name, hidrawDevice := range s.hidrawDevices {
         status := APIStatus{
             Name:           name,
-            HidrawDevice:   hidrawDevice.String(),
+            HidrawDevice:   hidrawDevice,
         }
 
         if avrtempDevice := s.avrtempDevices[name]; avrtempDevice != nil {
