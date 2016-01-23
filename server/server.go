@@ -45,6 +45,7 @@ type Server struct {
     influxChan          chan Stat       // write out to influx
 
     apiStatusChan       chan chan APIStatus
+    apiStatChan         chan chan APIStat
 }
 
 func New() (*Server, error) {
@@ -58,6 +59,7 @@ func New() (*Server, error) {
         statChan:       make(chan Stat),
 
         apiStatusChan:  make(chan chan APIStatus),
+        apiStatChan:    make(chan chan APIStat),
     }
 
     go server.run()
@@ -89,6 +91,25 @@ func (s *Server) apiStatus(statusChan chan APIStatus) {
         }
 
         statusChan <- status
+    }
+}
+
+func (s *Server) apiStat(statChan chan APIStat) {
+    defer close(statChan)
+
+    for id, stat := range s.stats {
+        apiStat := APIStat{
+            ID:             id,
+            Family:         stat.ID.Family(),
+            Time:           stat.Time,
+            Temperature:    stat.Temperature.Float64(),
+        }
+
+        if stat.SensorConfig != nil {
+            apiStat.SensorName = stat.SensorConfig.String()
+        }
+
+        statChan <- apiStat
     }
 }
 
@@ -130,6 +151,8 @@ func (s *Server) run() {
 
         case statusChan := <-s.apiStatusChan:
             s.apiStatus(statusChan)
+        case statChan := <-s.apiStatChan:
+            s.apiStat(statChan)
         }
     }
 }

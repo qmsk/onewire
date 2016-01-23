@@ -48,20 +48,15 @@ type APIStat struct {
 }
 
 func (s *Server) GetStats(_ *http.Request, path ...string) (interface{}, error) {
+    // request
+    statChan := make(chan APIStat)
+
+    s.apiStatChan <- statChan
+
+    // response
     var statsList []APIStat
 
-    for id, stat := range s.stats {
-        apiStat := APIStat{
-            ID:             id,
-            Family:         stat.ID.Family(),
-            Time:           stat.Time,
-            Temperature:    stat.Temperature.Float64(),
-        }
-
-        if stat.SensorConfig != nil {
-            apiStat.SensorName = stat.SensorConfig.String()
-        }
-
+    for apiStat := range statChan {
         statsList = append(statsList, apiStat)
     }
 
