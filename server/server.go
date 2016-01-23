@@ -2,22 +2,72 @@ package server
 
 import (
     "github.com/qmsk/onewire/avrtemp"
+    "fmt"
     "github.com/qmsk/onewire/hidraw"
     "log"
+    "time"
 )
+
+type Stat struct {
+    Device          *avrtemp.Device
+    Sensor          avrtemp.ID
+    Time            time.Time
+    Temperature     avrtemp.Temperature
+}
+
+func (stat Stat) String() string {
+    return fmt.Sprintf("%v", stat.Sensor)
+}
 
 type Server struct {
     hidrawDevices   map[string]hidraw.DeviceInfo
     avrtempDevices  map[string]*avrtemp.Device
+    stats           map[string]Stat
+
+    statChan            chan Stat
 }
 
 func New() (*Server, error) {
     server := &Server{
         hidrawDevices:  make(map[string]hidraw.DeviceInfo),
         avrtempDevices: make(map[string]*avrtemp.Device),
+        stats:          make(map[string]Stat),
+
+        statChan:       make(chan Stat),
     }
 
+    go server.run()
+
     return server, nil
+}
+
+func (s *Server) run() {
+    for {
+        select {
+        case stat := <-s.statChan:
+            log.Printf("server.Server: Stat %v: %v\n", stat, stat.Temperature)
+
+            s.stats[stat.String()] = stat
+        }
+    }
+}
+
+func (s *Server) reader(avrtempDevice *avrtemp.Device) {
+    for {
+        if report, err := avrtempDevice.Read(); err != nil {
+            log.Printf("server.Server: reader: avrtemp.Device %v: Read: %v\n", avrtempDevice, err)
+            break
+        } else {
+            log.Printf("server.Server: reader: avrtemp.Device %v: Read: %v\n", avrtempDevice, report)
+
+            s.statChan <- Stat{
+                Device:         avrtempDevice,
+                Sensor:         report.ID,
+                Time:           time.Now(),
+                Temperature:    report.Temp,
+            }
+        }
+    }
 }
 
 func (s *Server) AddHidrawDevice(deviceInfo hidraw.DeviceInfo) {
@@ -31,6 +81,8 @@ func (s *Server) AddHidrawDevice(deviceInfo hidraw.DeviceInfo) {
         log.Printf("AddHidrawDevice %#v: %#v\n", deviceInfo, avrtempDevice)
 
         s.avrtempDevices[deviceInfo.String()] = avrtempDevice
+
+        go s.reader(avrtempDevice)
     }
 }
 
