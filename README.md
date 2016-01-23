@@ -1,3 +1,7 @@
+## Supported devices:
+
+* Diamex GmbH / AVR Temp Sensor (USB `16c0:0480`)
+
 ## InfluxDB
 
 Supports writing stats to `server -influxdb-server=... -influxdb-database=...`.
