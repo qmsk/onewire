@@ -10,11 +10,15 @@ import (
 )
 
 var (
+    configPath  string
     deviceConfig hidraw.DeviceConfig
     httpListen  string
 )
 
 func init() {
+    flag.StringVar(&configPath, "config-path", "",
+        "Load config.toml")
+
     flag.UintVar(&deviceConfig.VendorID, "device-vendor", avrtemp.HIDRAW_CONFIG.VendorID,
         "Select device vendor")
     flag.UintVar(&deviceConfig.ProductID, "device-product", avrtemp.HIDRAW_CONFIG.ProductID,
@@ -34,6 +38,13 @@ func main() {
 
     http.Handle("/api/", http.StripPrefix("/api", s))
 
+    if configPath == "" {
+
+    } else if err := s.LoadConfig(configPath); err != nil {
+        log.Fatalf("server.LoadConfig %v: %v\n", configPath, err)
+    } else {
+        log.Printf("server.LoadConfig %v\n", configPath)
+    }
 
     if hidrawList, err := hidraw.List(deviceConfig); err != nil {
         log.Fatalf("hidraw.List %v: %v\n", deviceConfig, err)

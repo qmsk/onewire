@@ -12,11 +12,15 @@ import (
 
 type APIHandler func(*http.Request, ...string) (interface{}, error)
 
+func (s *Server) GetConfig(_ *http.Request, path ...string) (interface{}, error) {
+    return s.config, nil
+}
+
 type APIStatus struct {
     Name            string              `json:"name"`
     HidrawDevice    hidraw.DeviceInfo   `json:"hidraw_device"`
     AvrtempDevice   avrtemp.Status      `json:"avrtemp_device"`
-    Stats           []string            `json:"stats"`
+    Stats           map[string]string   `json:"stats"`
 }
 
 func (s *Server) GetStatus(_ *http.Request, path ...string) (interface{}, error) {
@@ -26,14 +30,19 @@ func (s *Server) GetStatus(_ *http.Request, path ...string) (interface{}, error)
         status := APIStatus{
             Name:           name,
             HidrawDevice:   hidrawDevice,
+            Stats:          make(map[string]string),
         }
 
         if avrtempDevice := s.avrtempDevices[name]; avrtempDevice != nil {
             status.AvrtempDevice = avrtempDevice.Status()
 
-            for statName, stat := range s.stats {
-                if stat.Device == avrtempDevice {
-                    status.Stats = append(status.Stats, statName)
+            for statID, stat := range s.stats {
+                if stat.Device != avrtempDevice {
+                    continue
+                } else if sensorConfig := s.sensorConfig[statID]; sensorConfig == nil {
+                    status.Stats[statID] = ""
+                } else {
+                    status.Stats[statID] = sensorConfig.String()
                 }
             }
         }
@@ -45,7 +54,8 @@ func (s *Server) GetStatus(_ *http.Request, path ...string) (interface{}, error)
 }
 
 type APIStat struct {
-    Stat        string      `json:"stat"`
+    ID          string      `json:"id"`
+    SensorName  string      `json:"sensor_name"`
     Time        time.Time   `json:"time"`
     Temperature float64     `json:"temperature"`
 }
@@ -53,11 +63,15 @@ type APIStat struct {
 func (s *Server) GetStats(_ *http.Request, path ...string) (interface{}, error) {
     var statsList []APIStat
 
-    for name, stat := range s.stats {
+    for id, stat := range s.stats {
         apiStat := APIStat{
-            Stat:           name,
+            ID:             id,
             Time:           stat.Time,
             Temperature:    stat.Temperature.Float64(),
+        }
+
+        if stat.SensorConfig != nil {
+            apiStat.SensorName = stat.SensorConfig.String()
         }
 
         statsList = append(statsList, apiStat)
@@ -70,6 +84,8 @@ func (s *Server) lookupAPI(path []string) (APIHandler, []string) {
     switch path[0] {
     case "":
         return s.GetStatus, nil
+    case "config":
+        return s.GetConfig, nil
     case "stats":
         return s.GetStats, path[1:]
     default:

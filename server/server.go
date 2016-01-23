@@ -10,16 +10,21 @@ import (
 
 type Stat struct {
     Device          *avrtemp.Device
-    Sensor          avrtemp.ID
+    ID              avrtemp.ID
+    SensorConfig    *SensorConfig
+
     Time            time.Time
     Temperature     avrtemp.Temperature
 }
 
 func (stat Stat) String() string {
-    return fmt.Sprintf("%v", stat.Sensor)
+    return fmt.Sprintf("%v", stat.ID)
 }
 
 type Server struct {
+    config          Config
+    sensorConfig    map[string]*SensorConfig
+
     hidrawDevices   map[string]hidraw.DeviceInfo
     avrtempDevices  map[string]*avrtemp.Device
     stats           map[string]Stat
@@ -29,6 +34,8 @@ type Server struct {
 
 func New() (*Server, error) {
     server := &Server{
+        sensorConfig:   make(map[string]*SensorConfig),
+
         hidrawDevices:  make(map[string]hidraw.DeviceInfo),
         avrtempDevices: make(map[string]*avrtemp.Device),
         stats:          make(map[string]Stat),
@@ -62,7 +69,8 @@ func (s *Server) reader(avrtempDevice *avrtemp.Device) {
 
             s.statChan <- Stat{
                 Device:         avrtempDevice,
-                Sensor:         report.ID,
+                ID:             report.ID,
+                SensorConfig:   s.sensorConfig[report.ID.String()],
                 Time:           time.Now(),
                 Temperature:    report.Temp,
             }
