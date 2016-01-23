@@ -33,10 +33,11 @@ func (stat Stat) String() string {
 }
 
 type Server struct {
-    // XXX: these maps are all racy
+    // only modified at startup
     config          Config
     sensorConfig    map[string]*SensorConfig
 
+    // state private to run()
     devices         map[string]*Device
     stats           map[string]Stat
 
@@ -44,6 +45,7 @@ type Server struct {
     statChan            chan Stat       // read in from Devices
     influxChan          chan Stat       // write out to influx
 
+    // HTTP API requests, handled by run()
     apiStatusChan       chan chan APIStatus
     apiStatChan         chan chan APIStat
 }
