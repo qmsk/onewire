@@ -1,7 +1,7 @@
 ## Usage
-
-        $ go build -o bin/server server.go 
-        $ ./bin/server -config-path config/test.toml -influxdb-server=localhost
+        $ go get github.com/qmsk/onewire
+        $ go install github.com/qmsk/onewire/cmd/...
+        $ $GOPATH/bin/onewire-server -config-path config/test.toml -influxdb-server=localhost
         2016/01/23 13:41:14 server.LoadConfig config/test.toml
         2016/01/23 13:41:14 server.InfluxWriter {localhost onewire}
         2016/01/23 13:41:14 hidraw.List...
@@ -118,6 +118,6 @@ The server uses `libudev` to enumerate and monitor connected USB devices matchin
 
 #### `/etc/udev/rules.d/90-hidraw.rules`
 
-    KERNEL=="hidraw*", \
+    KERNEL=="hidraw*", ATTRS{idProduct}=="0480", ATTRS{idVendor}=="16c0", \
         GROUP="plugdev", MODE=0660
 
