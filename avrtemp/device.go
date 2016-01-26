@@ -57,7 +57,7 @@ func (self ID) String() string {
     return hex.EncodeToString(self[:])
 }
 
-type Temperature    uint16
+type Temperature    int16
 
 func (self Temperature) Float64() float64 {
     return float64(self) / 10.0
